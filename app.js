@@ -1,120 +1,124 @@
 
-// MiniRevolut PWA - app.js
 (() => {
-  const el = id => document.getElementById(id);
-  const amountIn = el('amount');
-  const sourceIn = el('source');
-  const noteIn = el('note');
-  const addBtn = el('addBtn');
-  const removeBtn = el('removeBtn');
-  const resetBtn = el('resetBtn');
-  const txList = el('txList');
-  const totalAll = el('totalAll');
-  const txCount = el('txCount');
-  const exportBtn = el('exportBtn');
-  const clearAllBtn = el('clearAllBtn');
-  const filterIn = el('filter');
-  const tabs = document.querySelectorAll('[data-tab]');
-  const titleEl = el('pageTitle');
+  const qs = s => document.querySelector(s);
+  const qsa = s => Array.from(document.querySelectorAll(s));
+  const format = v => (Number(v)||0).toLocaleString('ro-RO',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' lei';
+  const KEY = 'minirevolut_v3';
 
-  const STORAGE_KEY = 'minirevolut_accounts_v1';
-  let state = { card: {tx:[]}, cash: {tx:[]} , active: 'card' };
-  function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); }
-  function load(){ try{ const r = localStorage.getItem(STORAGE_KEY); if(r) state = JSON.parse(r); }catch(e){} render(); }
+  // Pages
+  const pages = { total: qs('#page-total'), card: qs('#page-card'), cash: qs('#page-cash') };
+  const navButtons = qsa('.nav button');
 
-  function formatCurrency(v){
-    const n = Number(v) || 0;
-    return n.toLocaleString('ro-RO',{minimumFractionDigits:2, maximumFractionDigits:2}) + ' lei';
-  }
-  function curAccount(){ return state[state.active]; }
+  // Totals / summaries
+  const totalAllEl = qs('#totalAll'); const totalAllBig = qs('#totalAllBig');
+  const summaryCard = qs('#summaryCard'); const summaryCash = qs('#summaryCash');
+  const cardTotal = qs('#cardTotal'); const cashTotal = qs('#cashTotal');
 
-  function computeAccountTotal(acc){ return acc.tx.reduce((s,t) => s + Number(t.amount || 0), 0); }
-  function computeTotalAll(){ return computeAccountTotal(state.card) + computeAccountTotal(state.cash); }
+  // Card inputs/list
+  const cardAmount = qs('#cardAmount'); const cardSource = qs('#cardSource'); const cardNote = qs('#cardNote');
+  const cardAdd = qs('#cardAdd'); const cardRemove = qs('#cardRemove'); const cardReset = qs('#cardReset');
+  const cardList = qs('#cardList'); const cardExport = qs('#cardExport'); const cardClear = qs('#cardClear');
 
-  function addTransaction(amount, source, note){
-    if (!amount || isNaN(amount)) return alert('Introdu o sumă validă.');
-    const tx = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
-      amount: Number(Number(amount).toFixed(2)),
-      source: source ? String(source).trim() : '(fără sursă)',
-      note: note ? String(note).trim() : '',
-      date: new Date().toISOString()
-    };
-    state[state.active].tx.unshift(tx);
-    save();
-    clearInputs();
-  }
-  function deleteTx(id){
-    if(!confirm('Ștergi această tranzacție?')) return;
-    const acc = state[state.active];
-    acc.tx = acc.tx.filter(t => t.id !== id);
-    save();
-  }
-  function clearInputs(){ amountIn.value=''; sourceIn.value=''; noteIn.value=''; }
-  function exportCSV(){
-    const acc = state[state.active];
-    if(acc.tx.length === 0){ alert('Nu există tranzacții pentru export.'); return; }
-    const rows = [['id','date','amount','source','note'], ...acc.tx.map(t=>[t.id,t.date,t.amount,t.source,t.note])];
-    const csv = rows.map(r => r.map(c => '\"' + String(c).replace(/\"/g,'\"\"') + '\"').join(',')).join('\\n');
-    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url;
-    a.download = state.active + '-transactions-' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.csv';
-    a.click(); URL.revokeObjectURL(url);
-  }
-  function clearAll(){
-    if(!confirm('Ștergi toate tranzacțiile din acest cont?')) return;
-    state[state.active].tx = [];
-    save();
-  }
+  // Cash inputs/list
+  const cashAmount = qs('#cashAmount'); const cashSource = qs('#cashSource'); const cashNote = qs('#cashNote');
+  const cashAdd = qs('#cashAdd'); const cashRemove = qs('#cashRemove'); const cashReset = qs('#cashReset');
+  const cashList = qs('#cashList'); const cashExport = qs('#cashExport'); const cashClear = qs('#cashClear');
 
-  function render(){
+  // quick nav actions
+  const goCard = qs('#goCard'); const goCash = qs('#goCash');
+
+  let state = { card: {tx:[]}, cash: {tx:[]}, page: 'total' };
+
+  // Load / Save
+  function save(){ localStorage.setItem(KEY, JSON.stringify(state)); render(); }
+  function load(){ try{ const v = localStorage.getItem(KEY); if(v) state = JSON.parse(v); }catch(e){} render(); }
+
+  function sumTx(acc){ return acc.tx.reduce((s,t)=>s+Number(t.amount||0),0); }
+  function totalAll(){ return sumTx(state.card) + sumTx(state.cash); }
+
+  // Rendering
+  function render() {
     // totals
-    totalAll.textContent = formatCurrency(computeTotalAll());
-    txCount.textContent = curAccount().tx.length;
-    titleEl.textContent = state.active === 'card' ? 'Card' : 'Cash';
+    totalAllEl.textContent = format(totalAll());
+    totalAllBig.textContent = format(totalAll());
+    summaryCard.textContent = format(sumTx(state.card));
+    summaryCash.textContent = format(sumTx(state.cash));
+    cardTotal.textContent = format(sumTx(state.card));
+    cashTotal.textContent = format(sumTx(state.cash));
 
-    // filter
-    const q = (filterIn.value||'').toLowerCase().trim();
-    const visible = q ? curAccount().tx.filter(t => String(t.amount).toLowerCase().includes(q) || (t.source||'').toLowerCase().includes(q) || (t.note||'').toLowerCase().includes(q)) : curAccount().tx;
+    // active page display
+    Object.keys(pages).forEach(p => { pages[p].style.display = (state.page === p) ? '' : 'none'; });
+    navButtons.forEach(b => b.classList.toggle('active', b.dataset.page === state.page));
 
-    txList.innerHTML = '';
-    if(visible.length === 0){ txList.innerHTML = '<div class="muted small">Nicio tranzacție găsită.</div>'; return; }
-    visible.forEach(t => {
+    // lists
+    renderList(cardList, state.card.tx, 'card');
+    renderList(cashList, state.cash.tx, 'cash');
+  }
+
+  function renderList(container, list, type){
+    container.innerHTML = '';
+    if(!list || list.length===0){ container.innerHTML = '<div class="small">Nicio tranzacție.</div>'; return; }
+    list.forEach(t => {
       const div = document.createElement('div'); div.className = 'tx';
       const left = document.createElement('div'); left.className = 'left';
-      const title = document.createElement('div'); title.className = 'title'; title.textContent = t.source + (t.note ? ' — ' + t.note : '');
-      const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = new Date(t.date).toLocaleString();
+      const title = document.createElement('div'); title.className = 'title'; title.textContent = t.source + (t.note? ' — ' + t.note : '');
+      const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = t.date;
       left.appendChild(title); left.appendChild(meta);
       const right = document.createElement('div'); right.style.textAlign='right';
-      const amt = document.createElement('div'); amt.className = 'amt ' + (Number(t.amount) >= 0 ? 'plus' : 'minus'); amt.textContent = formatCurrency(t.amount);
-      const actions = document.createElement('div'); actions.style.marginTop='8px'; actions.style.display='flex'; actions.style.justifyContent='flex-end'; actions.style.gap='6px';
-      const del = document.createElement('button'); del.className='small'; del.textContent='Șterge'; del.onclick = ()=> deleteTx(t.id);
-      actions.appendChild(del);
-      right.appendChild(amt); right.appendChild(actions);
-      div.appendChild(left); div.appendChild(right); txList.appendChild(div);
+      const amt = document.createElement('div'); amt.className = 'amt ' + (Number(t.amount) >= 0 ? 'plus' : 'minus'); amt.textContent = format(t.amount);
+      const del = document.createElement('button'); del.className = 'btn btn-accent'; del.textContent = 'Șterge';
+      del.addEventListener('click', ()=> { if(confirm('Ștergi această tranzacție?')) { deleteTx(type, t.id); } });
+      right.appendChild(amt); right.appendChild(del);
+      div.appendChild(left); div.appendChild(right);
+      container.appendChild(div);
     });
   }
 
-  // events
-  addBtn.addEventListener('click', ()=> addTransaction(Number(amountIn.value), sourceIn.value, noteIn.value));
-  removeBtn.addEventListener('click', ()=> { const v = Number(amountIn.value); if(!v || isNaN(v)) return alert('Introdu o sumă validă.'); addTransaction(-Math.abs(v), sourceIn.value, noteIn.value); });
-  resetBtn.addEventListener('click', clearInputs);
-  exportBtn.addEventListener('click', exportCSV);
-  clearAllBtn.addEventListener('click', clearAll);
-  filterIn.addEventListener('input', render);
-  amountIn.addEventListener('keydown', (e)=> { if(e.key==='Enter') addBtn.click(); });
-
-  // tab switch
-  tabs.forEach(t => t.addEventListener('click', ()=> {
-    tabs.forEach(x=>x.classList.remove('active'));
-    t.classList.add('active');
-    state.active = t.dataset.tab;
+  function addTx(type, amount, source, note){
+    if(!amount || isNaN(amount)) { alert('Introdu o sumă validă.'); return; }
+    const tx = { id: Date.now() + Math.random().toString(36).slice(2,6), amount: Number(Number(amount).toFixed(2)), source: source||'(fără sursă)', note: note||'', date: new Date().toLocaleString() };
+    state[type].tx.unshift(tx);
     save();
-  }));
+  }
+  function deleteTx(type, id){
+    state[type].tx = state[type].tx.filter(t=>t.id!==id);
+    save();
+  }
+  function clearAll(type){
+    if(!confirm('Ștergi toate tranzacțiile din acest cont?')) return;
+    state[type].tx = []; save();
+  }
+  function exportCSV(type){
+    const list = state[type].tx;
+    if(!list || list.length===0){ alert('Nu există tranzacții pentru export.'); return; }
+    const rows = [['id','date','amount','source','note'], ...list.map(t=>[t.id,t.date,t.amount,t.source,t.note])];
+    const csv = rows.map(r=> r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\n');
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url;
+    a.download = type + '-transactions-' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.csv'; a.click(); URL.revokeObjectURL(url);
+  }
 
-  // install service worker
-  if('serviceWorker' in navigator){ navigator.serviceWorker.register('./service-worker.js').catch(()=>{}); }
+  // Event bindings
+  qsa('.nav button').forEach(b => b.addEventListener('click', ()=> { state.page = b.dataset.page; save(); }));
+  qs('#goCard').addEventListener('click', ()=> { state.page='card'; save(); });
+  qs('#goCash').addEventListener('click', ()=> { state.page='cash'; save(); });
+
+  // Card buttons
+  qs('#cardAdd').addEventListener('click', ()=> addTx('card', Number(qs('#cardAmount').value), qs('#cardSource').value.trim(), qs('#cardNote').value.trim()));
+  qs('#cardRemove').addEventListener('click', ()=> addTx('card', -Math.abs(Number(qs('#cardAmount').value)), qs('#cardSource').value.trim(), qs('#cardNote').value.trim()));
+  qs('#cardReset').addEventListener('click', ()=> { qs('#cardAmount').value=''; qs('#cardSource').value=''; qs('#cardNote').value=''; });
+  qs('#cardClear').addEventListener('click', ()=> clearAll('card'));
+  qs('#cardExport').addEventListener('click', ()=> exportCSV('card'));
+
+  // Cash buttons
+  qs('#cashAdd').addEventListener('click', ()=> addTx('cash', Number(qs('#cashAmount').value), qs('#cashSource').value.trim(), qs('#cashNote').value.trim()));
+  qs('#cashRemove').addEventListener('click', ()=> addTx('cash', -Math.abs(Number(qs('#cashAmount').value)), qs('#cashSource').value.trim(), qs('#cashNote').value.trim()));
+  qs('#cashReset').addEventListener('click', ()=> { qs('#cashAmount').value=''; qs('#cashSource').value=''; qs('#cashNote').value=''; });
+  qs('#cashClear').addEventListener('click', ()=> clearAll('cash'));
+  qs('#cashExport').addEventListener('click', ()=> exportCSV('cash'));
+
+  // service worker registration (best effort)
+  if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js').catch(()=>{}); }
 
   load();
 })();
