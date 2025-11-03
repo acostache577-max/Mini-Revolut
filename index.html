@@ -21,7 +21,7 @@
     .small{font-size:13px;color:var(--muted)}
     .big-amount{font-weight:700;color:var(--accent);font-size:22px}
     .section-title{font-weight:700;margin-bottom:6px}
-    input[type="text"],input[type="number"]{width:100%;padding:9px;border-radius:8px;border:1px solid #e6edf2;font-size:14px;margin-top:6px}
+    input[type="text"],input[type="number"],select{width:100%;padding:9px;border-radius:8px;border:1px solid #e6edf2;font-size:14px;margin-top:6px}
     .controls{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
     button.btn{cursor:pointer;border:0;padding:9px 12px;border-radius:10px;font-weight:600}
     .btn-primary{background:var(--accent);color:white}
@@ -35,7 +35,14 @@
     .amt.plus{color:var(--success);font-weight:700}
     .amt.minus{color:var(--danger);font-weight:700}
     footer{font-size:12px;color:var(--muted);text-align:center;margin-top:12px}
-    @media(max-width:800px){.grid{grid-template-columns:1fr}}
+    .card-preview{width:100%;height:120px;border-radius:12px;display:flex;align-items:flex-end;padding:12px;color:#fff;position:relative;overflow:hidden}
+    .card-title{position:absolute;right:12px;bottom:8px;font-weight:700}
+    .card-dot{position:absolute;left:12px;top:12px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.15)}
+    .cards-list{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .card-item{width:160px;border-radius:12px;overflow:hidden;cursor:pointer;border:2px solid transparent}
+    .card-item.active{box-shadow:0 6px 14px rgba(2,6,23,0.08);border-color:rgba(0,0,0,0.06)}
+    .add-card{display:flex;align-items:center;justify-content:center;border:2px dashed rgba(6,182,212,0.25);border-radius:12px;background:transparent;height:120px;color:var(--accent);font-weight:700}
+    @media(max-width:800px){.grid{grid-template-columns:1fr} .card-item{width:48%}}
   </style>
   <link rel="icon" href="icon-192.svg">
 </head>
@@ -66,13 +73,15 @@
           <div class="card">
             <div class="section-title">Total general</div>
             <div class="big-amount" id="totalAllBig">0,00 lei</div>
-            <div class="small" style="margin-top:8px">Sumă combinată din Card și Cash</div>
+            <div class="small" style="margin-top:8px">Sumă combinată din Carduri și Cash</div>
+            <div class="section-title" style="margin-top:12px">Carduri</div>
+            <div id="cardsSummary" class="cards-list"></div>
           </div>
 
           <div class="card">
             <div class="section-title">Sinteză</div>
             <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-              <div style="display:flex;justify-content:space-between"><div>Card</div><div id="summaryCard">0,00 lei</div></div>
+              <div style="display:flex;justify-content:space-between"><div>Carduri (total)</div><div id="summaryCard">0,00 lei</div></div>
               <div style="display:flex;justify-content:space-between"><div>Cash</div><div id="summaryCash">0,00 lei</div></div>
             </div>
           </div>
@@ -89,9 +98,23 @@
 
       <!-- Card page -->
       <section id="page-card" style="display:none">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="section-title">Carduri</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input id="newCardTitle" placeholder="Nume card (ex: Principal)" style="padding:8px;border-radius:8px;border:1px solid #e6edf2" />
+              <button id="addCardBtn" class="btn btn-accent">+ Adaugă card</button>
+            </div>
+          </div>
+
+          <div id="cardsList" class="cards-list" style="margin-top:12px"></div>
+        </div>
+
+        <div style="height:12px"></div>
+
         <div class="grid">
           <div class="card">
-            <div class="section-title">Card — sold: <span id="cardTotal">0,00 lei</span></div>
+            <div class="section-title">Cont curent: <span id="activeCardTitle">N/A</span> — sold: <span id="activeCardTotal">0,00 lei</span></div>
             <label>Sumă (lei)</label><input id="cardAmount" type="number" step="0.01" placeholder="ex: 600.00" />
             <label>Sursă</label><input id="cardSource" type="text" placeholder="card, salariu..." />
             <label>Notă (opțional)</label><input id="cardNote" type="text" placeholder="ex: Plata, retragere..." />
